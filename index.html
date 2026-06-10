@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Particle Universe — Mega Edition</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --accent: #00ffe7;
+    --accent2: #ff2d78;
+    --accent3: #ffe200;
+    --bg: #00000a;
+    --panel: rgba(5,5,20,0.82);
+    --border: rgba(0,255,231,0.18);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background: var(--bg); overflow: hidden; font-family: 'Share Tech Mono', monospace; color: #fff; cursor: crosshair; }
+  canvas { display: block; position: fixed; inset: 0; }
+
+  /* ── HUD top-left ── */
+  #hud {
+    position: fixed; top: 18px; left: 18px; z-index: 200; pointer-events: none;
+  }
+  #hud-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px; font-weight: 900; letter-spacing: 5px;
+    background: linear-gradient(90deg, #00ffe7, #ff2d78, #ffe200, #00ffe7);
+    background-size: 200%;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    animation: titleShift 4s linear infinite;
+    margin-bottom: 5px;
+  }
+  @keyframes titleShift { to { background-position: 200%; } }
+  #hud-preset { font-size: 11px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 3px; }
+  #hud-desc   { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 1px; max-width: 260px; line-height: 1.6; }
+  #hud-count  { margin-top: 7px; font-size: 10px; color: rgba(0,255,200,0.6); letter-spacing: 2px; }
+
+  /* ── Controls panel ── */
+  #controls {
+    position: fixed; top: 18px; right: 18px; z-index: 200;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 15px 18px; width: 230px;
+    backdrop-filter: blur(14px);
+  }
+  #controls h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px; letter-spacing: 4px; color: rgba(255,255,255,0.3);
+    margin-bottom: 13px; border-bottom: 1px solid var(--border); padding-bottom: 8px;
+  }
+  .cr { margin-bottom: 11px; }
+  .cl { display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.65); margin-bottom:4px; letter-spacing:1px; }
+  .cv { color: var(--accent); font-weight: bold; }
+  input[type=range] {
+    width:100%; appearance:none; -webkit-appearance:none; height:2px;
+    background: rgba(255,255,255,0.12); border-radius:1px; outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance:none; -webkit-appearance:none; width:11px; height:11px;
+    background: var(--accent); border-radius:50%;
+    box-shadow: 0 0 8px var(--accent); cursor:pointer;
+  }
+
+  /* ── Preset grid ── */
+  #presets-wrap {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: linear-gradient(to top, rgba(0,0,10,0.95) 60%, transparent);
+    padding: 12px 16px 14px;
+  }
+  #presets-label {
+    font-size: 9px; letter-spacing: 4px; color: rgba(255,255,255,0.25);
+    text-align: center; margin-bottom: 8px; text-transform: uppercase;
+  }
+  #presets {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+  }
+  .pb {
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.65); padding: 5px 12px; border-radius: 20px;
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.18s; font-family: 'Share Tech Mono', monospace;
+    white-space: nowrap;
+  }
+  .pb:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,255,231,0.07); }
+  .pb.active { border-color: var(--accent); color: var(--accent); background: rgba(0,255,231,0.13); box-shadow: 0 0 10px rgba(0,255,231,0.2); }
+  .pb.cat  { border-color: rgba(180,0,255,0.4); color: rgba(200,100,255,0.9); }
+  .pb.cat:hover, .pb.cat.active { border-color: #c040ff; color: #e080ff; background: rgba(180,0,255,0.12); box-shadow: 0 0 10px rgba(180,0,255,0.25); }
+  .pb.fire { border-color: rgba(255,80,0,0.4); color: rgba(255,150,50,0.9); }
+  .pb.fire:hover, .pb.fire.active { border-color: #ff5000; color: #ff9030; background: rgba(255,80,0,0.12); box-shadow: 0 0 10px rgba(255,80,0,0.25); }
+
+  /* ── FPS ── */
+  #fps { position:fixed; top:18px; left:50%; transform:translateX(-50%); font-size:10px; color:rgba(255,255,255,0.2); letter-spacing:3px; z-index:200; }
+
+  /* ── Loading ── */
+  #loading {
+    position:fixed; inset:0; background:#00000a;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:999; transition:opacity 1s;
+  }
+  #loading h1 { font-family:'Orbitron',sans-serif; font-size:12px; letter-spacing:8px; color:rgba(255,255,255,0.4); margin-bottom:20px; }
+  .lbw { width:220px; height:2px; background:rgba(255,255,255,0.08); border-radius:1px; overflow:hidden; }
+  .lb  { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); width:0%; transition:width 0.15s; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <h1>PARTICLE UNIVERSE</h1>
+  <div class="lbw"><div class="lb" id="lb"></div></div>
+</div>
+
+<div id="hud">
+  <div id="hud-title">PARTICLE UNIVERSE</div>
+  <div id="hud-preset">◈ GALAXY</div>
+  <div id="hud-desc">Drag to rotate · Scroll to zoom</div>
+  <div id="hud-count">◈ 20,000 PARTICLES</div>
+</div>
+
+<div id="controls">
+  <h3>◈ PARAMETERS</h3>
+  <div class="cr"><div class="cl">Speed <span class="cv" id="vs">1.0</span></div><input type="range" id="cs" min="0" max="3" step="0.01" value="1"></div>
+  <div class="cr"><div class="cl">Scale <span class="cv" id="vsc">50</span></div><input type="range" id="csc" min="5" max="130" step="1" value="50"></div>
+  <div class="cr"><div class="cl">Chaos <span class="cv" id="vch">0.5</span></div><input type="range" id="cch" min="0" max="3" step="0.01" value="0.5"></div>
+  <div class="cr"><div class="cl">Color Shift <span class="cv" id="vcl">0.0</span></div><input type="range" id="ccl" min="0" max="1" step="0.01" value="0"></div>
+  <div class="cr"><div class="cl">Size <span class="cv" id="vsz">2.0</span></div><input type="range" id="csz" min="0.5" max="6" step="0.1" value="2"></div>
+</div>
+
+<div id="fps">FPS: --</div>
+
+<div id="presets-wrap">
+  <div id="presets-label">◈ choose a shape ◈</div>
+  <div id="presets">
+    <button class="pb active" data-p="galaxy">GALAXY</button>
+    <button class="pb" data-p="sphere">SPHERE</button>
+    <button class="pb" data-p="cube">CUBE</button>
+    <button class="pb" data-p="helix">HELIX</button>
+    <button class="pb" data-p="torus">TORUS</button>
+    <button class="pb" data-p="dna">DNA</button>
+    <button class="pb" data-p="lorenz">LORENZ</button>
+    <button class="pb" data-p="wave">WAVE FIELD</button>
+    <button class="pb fire" data-p="planets">PLANETS COLLIDE</button>
+    <button class="pb" data-p="torusknot">TORUS KNOT</button>
+    <button class="pb cat" data-p="purplecat">PURPLE CAT</button>
+    <button class="pb fire" data-p="impact">IMPACT</button>
+    <button class="pb" data-p="magneticbox">MAGNETIC BOX</button>
+    <button class="pb" data-p="bio">BIO</button>
+    <button class="pb fire" data-p="vo2max">VO2MAX</button>
+    <button class="pb" data-p="peak">PEAK</button>
+    <button class="pb cat" data-p="creature">LIL CREATURE</button>
+    <button class="pb fire" data-p="agfd">AGFD</button>
+    <button class="pb" data-p="hyperknot">HYPER KNOT</button>
+    <button class="pb" data-p="blackhole">BLACK HOLE</button>
+    <button class="pb fire" data-p="supernova">SUPERNOVA</button>
+    <button class="pb cat" data-p="jellyfish">JELLYFISH</button>
+    <button class="pb" data-p="crystal">CRYSTAL</button>
+    <button class="pb fire" data-p="tornado">TORNADO</button>
+    <button class="pb cat" data-p="neuron">NEURON</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+
+  var lbEl=document.getElementById('lb'), lsEl=document.getElementById('loading');
+  var lp=0, lt=setInterval(function(){lp=Math.min(lp+Math.random()*12,90);lbEl.style.width=lp+'%';},100);
+
+  var renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setClearColor(0x00000a,1);
+  document.body.appendChild(renderer.domElement);
+
+  var scene=new THREE.Scene();
+  var camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,3000);
+  camera.position.set(0,30,160);
+  camera.lookAt(0,0,0);
+
+  var N=20000;
+  var pos=new Float32Array(N*3), col=new Float32Array(N*3);
+  for(var k=0;k<N;k++){
+    pos[k*3]=(Math.random()-.5)*80; pos[k*3+1]=(Math.random()-.5)*80; pos[k*3+2]=(Math.random()-.5)*80;
+    col[k*3]=0;col[k*3+1]=1;col[k*3+2]=0.8;
+  }
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+  var mat=new THREE.PointsMaterial({size:0.55,vertexColors:true,sizeAttenuation:true,transparent:true,opacity:0.92,blending:THREE.AdditiveBlending,depthWrite:false});
+  var pts=new THREE.Points(geo,mat);
+  scene.add(pts);
+
+  var _c=new THREE.Color();
+
+  function gv(id){return parseFloat(document.getElementById(id).value);}
+  ['s','sc','ch','cl','sz'].forEach(function(n){
+    var el=document.getElementById('c'+n);
+    el.addEventListener('input',function(){document.getElementById('v'+n).textContent=parseFloat(el.value).toFixed(1);});
+  });
+
+  // ── ALL PRESETS ──────────────────────────────────────────────────
+  var P={
+
+    galaxy:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N, arm=Math.floor(f*3), at=(f*3)%1;
+      var ang=at*Math.PI*8+arm*(Math.PI*2/3)+t*sp*0.3;
+      var r=at*sc, ns=(1-at)*ch*8;
+      _c.setHSL((f*0.4+cs+arm*0.18)%1,1,.55);
+      return[Math.cos(ang)*r+Math.sin(i*127+t*.5)*ns, Math.cos(i*312+t*.5)*ns*.25, Math.sin(ang)*r+Math.sin(i*74+t*.7)*ns*.5];
+    },
+
+    sphere:function(i,N,t,sp,sc,ch,cs){
+      var phi=Math.acos(Math.max(-1,Math.min(1,1-2*(i/N))));
+      var theta=Math.sqrt(N*Math.PI)*phi+t*sp*0.4;
+      var r=sc*(0.9+Math.sin(t*sp+phi*5)*0.1*ch);
+      _c.setHSL((phi/Math.PI+cs+t*.04)%1,.95,.55);
+      return[r*Math.sin(phi)*Math.cos(theta),r*Math.cos(phi),r*Math.sin(phi)*Math.sin(theta)];
+    },
+
+    cube:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var face=Math.floor(f*6), ft=(f*6)%1;
+      var u=(ft*57.3%1)*2-1, v=((ft*97.1+face*.3)%1)*2-1;
+      var x,y,z;
+      if(face===0){x=1;y=u;z=v;}
+      else if(face===1){x=-1;y=u;z=v;}
+      else if(face===2){x=u;y=1;z=v;}
+      else if(face===3){x=u;y=-1;z=v;}
+      else if(face===4){x=u;y=v;z=1;}
+      else{x=u;y=v;z=-1;}
+      var ns=ch*Math.sin(i*.05+t*sp)*0.1;
+      var rot=t*sp*0.3;
+      var rx=x*Math.cos(rot)-z*Math.sin(rot), rz=x*Math.sin(rot)+z*Math.cos(rot);
+      _c.setHSL((face/6+cs+t*.02)%1,1,.55);
+      return[rx*sc+ns*sc,y*sc+ns*sc,rz*sc+ns*sc];
+    },
+
+    helix:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var ang=f*Math.PI*30+t*sp*1.5;
+      var z=(f-.5)*sc*2.5;
+      var r=sc*.25+Math.sin(f*Math.PI*6+t)*ch*4;
+      _c.setHSL((f*.7+cs)%1,1,.6);
+      return[Math.cos(ang)*r,z,Math.sin(ang)*r];
+    },
+
+    torus:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N, ang=f*Math.PI*2;
+      var phi=f*Math.PI*20+t*sp*.5;
+      var R=sc*.5, r=sc*.18;
+      var ns=ch*Math.sin(i*.3+t)*2;
+      _c.setHSL((f+cs+t*.015)%1,1,.55);
+      return[(R+r*Math.cos(phi))*Math.cos(ang)+ns,(R+r*Math.cos(phi))*Math.sin(ang)+ns*.4,r*Math.sin(phi)+ns*.6];
+    },
+
+    dna:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N, s=i%2;
+      var ang=f*Math.PI*24+t*sp+s*Math.PI;
+      var r=sc*.22+Math.sin(f*Math.PI*5+t)*ch*3;
+      _c.setHSL((f*.5+cs+s*.5)%1,1,.6);
+      return[Math.cos(ang)*r,(f-.5)*sc*2.5,Math.sin(ang)*r];
+    },
+
+    lorenz:function(i,N,t,sp,sc,ch,cs){
+      var f=(i/N)*Math.PI*20+t*sp*.15;
+      var sg=10+ch*5,rho=28,beta=8/3;
+      var lx=Math.sin(f*.71+i*.0013)*12,ly=Math.cos(f*.53+i*.002)*6,lz=Math.abs(Math.sin(f*.31))*22+8;
+      for(var s=0;s<30;s++){var dx=sg*(ly-lx),dy=lx*(rho-lz)-ly,dz=lx*ly-beta*lz;lx+=dx*.005;ly+=dy*.005;lz+=dz*.005;}
+      _c.setHSL((i/N*.6+cs+t*.025)%1,1,.55);
+      var nm=sc/26; return[lx*nm,(lz-26)*nm,ly*nm];
+    },
+
+    wave:function(i,N,t,sp,sc,ch,cs){
+      var cols=Math.ceil(Math.sqrt(N)),row=Math.floor(i/cols),col=i%cols;
+      var wx=(col/cols-.5)*sc*2.2, wz=(row/cols-.5)*sc*2.2;
+      var dist=Math.sqrt(wx*wx+wz*wz)+.001;
+      var wy=Math.sin(dist*.28-t*sp*2.5)*16+Math.sin(wx*.18+t*sp*1.8)*9+Math.cos(wz*.22-t*sp)*ch*11;
+      _c.setHSL((dist/sc*.45+cs+t*.018)%1,1,.52);
+      return[wx,wy,wz];
+    },
+
+    planets:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var planet=Math.floor(f*3), pf=(f*3)%1;
+      var orb=[sc*.3,sc*.6,sc*.9];
+      var spd=[2.1,1.3,.7];
+      var ang=pf*Math.PI*2+t*sp*spd[planet]+planet*2.1;
+      var tilt=planet*0.4;
+      var ox=Math.cos(ang)*orb[planet], oy=Math.sin(ang)*orb[planet]*.3, oz=Math.sin(ang)*orb[planet];
+      // collision burst near center
+      var boom=Math.exp(-dist2(ox,oy,oz)*0.002)*ch*20;
+      var nx=Math.sin(i*53+t*3)*boom, ny=Math.cos(i*79+t*2)*boom, nz=Math.sin(i*31+t*4)*boom;
+      _c.setHSL((planet/3+cs+pf*.3+t*.03)%1,1,.6);
+      return[ox+nx,oy+ny,oz+nz];
+      function dist2(a,b,c){return a*a+b*b+c*c;}
+    },
+
+    torusknot:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N, theta=f*Math.PI*2*5, p=3,q=7;
+      var r1=sc*.4,r2=sc*.15;
+      var ang=theta*p+t*sp*.2, tw=theta*q+t*sp*.1;
+      var ns=ch*Math.sin(i*.27+t)*3;
+      _c.setHSL((f+cs+t*.018)%1,1,.55);
+      return[(r1+r2*Math.cos(tw))*Math.cos(ang)+ns,(r1+r2*Math.cos(tw))*Math.sin(ang)+ns*.4,r2*Math.sin(tw)+ns*.8];
+    },
+
+    purplecat:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var part=Math.floor(f*7), pf=(f*7)%1;
+      var x,y,z;
+      // body=0, head=1, tail=2, ear1=3, ear2=4, paw1=5, paw2=6
+      if(part===0){// body ellipsoid
+        var phi=pf*Math.PI*2, th=(i/N)*Math.PI;
+        x=Math.cos(phi)*sc*.25; y=Math.sin(phi)*sc*.15+0; z=Math.sin(th)*sc*.35;
+      } else if(part===1){// head circle
+        var a=pf*Math.PI*2; x=Math.cos(a)*sc*.15; y=sc*.2+Math.sin(a)*sc*.13; z=Math.cos(a*3)*sc*.05;
+      } else if(part===2){// curly tail
+        var a=pf*Math.PI*3; x=-sc*.3+Math.cos(a)*sc*.1*pf; y=-sc*.1+Math.sin(a)*sc*.1*pf; z=Math.sin(a*2)*sc*.05;
+      } else if(part===3){// ear L
+        var a=pf*Math.PI; x=-sc*.1+Math.cos(a)*sc*.07; y=sc*.32+Math.sin(a)*sc*.1; z=0;
+      } else if(part===4){// ear R
+        var a=pf*Math.PI; x=sc*.1+Math.cos(a)*sc*.07; y=sc*.32+Math.sin(a)*sc*.1; z=0;
+      } else if(part===5){// paw L
+        var a=pf*Math.PI*2; x=-sc*.15+Math.cos(a)*sc*.06; y=-sc*.22+Math.sin(a)*sc*.04; z=sc*.05;
+      } else {// paw R
+        var a=pf*Math.PI*2; x=sc*.15+Math.cos(a)*sc*.06; y=-sc*.22+Math.sin(a)*sc*.04; z=sc*.05;
+      }
+      var wobble=Math.sin(t*sp*1.5)*ch*3;
+      var hue=(0.75+f*.12+cs+t*.01)%1;
+      _c.setHSL(hue,1,.65);
+      return[x+Math.sin(t*sp+i*.01)*ch*1.5, y+wobble, z+Math.cos(t*sp+i*.007)*ch*1.5];
+    },
+
+    impact:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var phase=((t*sp*.8)%1);
+      var ring=Math.floor(f*8), rf=(f*8)%1;
+      var ang=rf*Math.PI*2;
+      var ringR=ring*(sc*.12)*(1+phase*ch*2);
+      var height=(1-ring/8)*sc*.3*(1-phase);
+      var explode=phase*ch*sc*.5;
+      var nx=Math.sin(i*73+t*4)*explode*.3;
+      var ny=Math.sin(i*117+t*3)*explode*.2;
+      var nz=Math.cos(i*59+t*5)*explode*.3;
+      _c.setHSL((ring/8*.5+cs+phase*.3)%1,1,.6+phase*.2);
+      return[Math.cos(ang)*ringR+nx,height+ny,Math.sin(ang)*ringR+nz];
+    },
+
+    magneticbox:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var s2=Math.ceil(Math.cbrt(N));
+      var xi=Math.floor(i/(s2*s2)), yi=Math.floor((i%(s2*s2))/s2), zi=i%s2;
+      var xn=(xi/s2-.5)*2, yn=(yi/s2-.5)*2, zn=(zi/s2-.5)*2;
+      var dist=Math.sqrt(xn*xn+yn*yn+zn*zn)+.001;
+      var mag=ch/(dist*dist+.3);
+      var ang=t*sp+dist*3;
+      var bx=xn+Math.sin(ang+zn)*mag*.4;
+      var by=yn+Math.cos(ang+xn)*mag*.4;
+      var bz=zn+Math.sin(ang*1.3+yn)*mag*.4;
+      _c.setHSL((dist*.4+cs+t*.02)%1,1,.55);
+      return[bx*sc,by*sc,bz*sc];
+    },
+
+    bio:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      // Fibonacci phyllotaxis + heartbeat pulse
+      var golden=2.399963; // 2*PI*(1-1/phi)
+      var ang=i*golden+t*sp*.1;
+      var r=Math.sqrt(i/N)*sc;
+      var pulse=1+Math.sin(t*sp*4)*ch*.2;
+      var z=Math.sin(f*Math.PI*10+t*sp)*sc*.15;
+      var membrane=Math.cos(f*Math.PI*20+t*sp*2)*ch*4;
+      _c.setHSL((.35+f*.25+cs+Math.sin(t*.5)*.05)%1,.9,.55);
+      return[Math.cos(ang)*r*pulse,z+membrane,Math.sin(ang)*r*pulse];
+    },
+
+    vo2max:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      // Lung-like branching tree fractal
+      var depth=Math.floor(f*6), df=(f*6)%1;
+      var branchAng=depth*0.52+t*sp*.2;
+      var branchR=sc*Math.pow(.65,depth);
+      var spine=(depth/6-.5)*sc*1.8;
+      var side=Math.pow(-1,depth)*branchR*Math.sin(df*Math.PI);
+      var wave=Math.sin(t*sp*3+depth+df*Math.PI)*ch*6;
+      _c.setHSL((.6+depth*.05+cs)%1,1,.6);
+      return[side*Math.cos(branchAng)+wave,spine,side*Math.sin(branchAng)+wave*.5];
+    },
+
+    peak:function(i,N,t,sp,sc,ch,cs){
+      var cols=Math.ceil(Math.sqrt(N)), row=Math.floor(i/cols), col=i%cols;
+      var wx=(col/cols-.5)*sc*2.5, wz=(row/cols-.5)*sc*2.5;
+      var dist=Math.sqrt(wx*wx+wz*wz)+.001;
+      // mountain range with multiple peaks
+      var h1=Math.exp(-dist*.04)*sc*.8;
+      var h2=Math.exp(-((wx-sc*.3)*(wx-sc*.3)+(wz-sc*.2)*(wz-sc*.2))*.005)*sc*.5;
+      var h3=Math.exp(-((wx+sc*.25)*(wx+sc*.25)+(wz-sc*.35)*(wz-sc*.35))*.006)*sc*.4;
+      var snow=h1>sc*.6?ch*Math.sin(i*311+t*sp*2)*3:0;
+      var wy=h1+h2+h3+snow-sc*.2;
+      _c.setHSL((wy/(sc*.8)*.3+.15+cs)%1,wy>sc*.5?.2:.9,.55);
+      return[wx,wy,wz];
+    },
+
+    creature:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      // Blobby alien creature with tentacles
+      var limb=Math.floor(f*10), lf=(f*10)%1;
+      var limbAng=limb*(Math.PI*2/10)+t*sp*.3;
+      var x,y,z;
+      if(limb<6){// tentacles
+        var seg=lf, wave=Math.sin(seg*Math.PI*3+t*sp*2+limb)*ch*sc*.12;
+        x=Math.cos(limbAng)*(sc*.12+seg*sc*.25)+wave;
+        y=-seg*sc*.3+Math.sin(t*sp+limb)*sc*.06;
+        z=Math.sin(limbAng)*(sc*.12+seg*sc*.25)+wave;
+      } else if(limb<9){// body blobs
+        var a=lf*Math.PI*2, b=lf*Math.PI;
+        x=Math.cos(a)*Math.sin(b)*sc*.18; y=Math.cos(b)*sc*.15; z=Math.sin(a)*Math.sin(b)*sc*.18;
+      } else {// eye glow
+        var a=lf*Math.PI*2; x=Math.cos(a)*sc*.04+(Math.floor(f*2)-.5)*sc*.07;
+        y=sc*.12; z=sc*.15+Math.sin(a)*sc*.03;
+      }
+      var breathe=1+Math.sin(t*sp*1.2)*.08*ch;
+      _c.setHSL((.8+limb*.02+cs+t*.01)%1,1,.6);
+      return[x*breathe,y*breathe,z*breathe];
+    },
+
+    agfd:function(i,N,t,sp,sc,ch,cs){
+      // Acoustic Geometric Flow Dynamics — standing wave interference
+      var f=i/N;
+      var cols=Math.ceil(Math.sqrt(N)), row=Math.floor(i/cols), col=i%cols;
+      var u=(col/cols-.5)*Math.PI*4, v=(row/cols-.5)*Math.PI*4;
+      var w1=Math.sin(u*2+t*sp*1.5)*Math.cos(v+t*sp);
+      var w2=Math.sin(u+v*1.5+t*sp*2)*Math.cos(u-v+t*sp*.7);
+      var w3=Math.cos(u*1.3-v*.8+t*sp*1.2);
+      var ht=(w1+w2+w3)*ch*sc*.12;
+      var nx=u*sc*.22, nz=v*sc*.22;
+      _c.setHSL(((w1+w2)*.25+.5+cs+t*.015)%1,1,.55);
+      return[nx+Math.sin(v+t)*ch*3,ht,nz+Math.cos(u+t)*ch*3];
+    },
+
+    hyperknot:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N, theta=f*Math.PI*2;
+      var p=5,q=3;
+      var r=Math.cos(q*theta)+2;
+      var x=r*Math.cos(p*theta)*sc*.3;
+      var y=r*Math.sin(p*theta)*sc*.3;
+      var z=-(Math.sin(q*theta))*sc*.3;
+      var twist=Math.sin(f*Math.PI*11+t*sp)*ch*sc*.08;
+      _c.setHSL((f*.8+cs+t*.02)%1,1,.55);
+      return[x+twist,y+twist*.6,z+twist*.8];
+    },
+
+    blackhole:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var ang=f*Math.PI*2*12+t*sp*.8;
+      var r=f*sc*.9+.01;
+      var warp=sc*.15/(r+.01);
+      var infall=Math.pow(1-f,.5)*ch*sc*.3;
+      var diskH=Math.sin(f*Math.PI*6)*sc*.04*(1-f*.8);
+      _c.setHSL((f*.5+cs+.6+t*.025)%1,1,.4+f*.3);
+      return[Math.cos(ang)*(r-infall),diskH,Math.sin(ang)*(r-infall)];
+    },
+
+    supernova:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var phi=Math.acos(Math.max(-1,Math.min(1,1-2*f)));
+      var theta=Math.sqrt(N*Math.PI)*phi;
+      var phase=((t*sp*.4)%1);
+      var r=sc*(phase*.7+.1)+Math.sin(phi*12+t*sp*3)*ch*sc*.1;
+      var shockwave=Math.exp(-Math.pow(r/sc-phase,2)*20)*sc*.4*ch;
+      _c.setHSL((.05+f*.15+cs+(1-phase)*.3)%1,1,.5+phase*.3);
+      return[Math.sin(phi)*Math.cos(theta)*(r+shockwave),Math.cos(phi)*(r+shockwave),Math.sin(phi)*Math.sin(theta)*(r+shockwave)];
+    },
+
+    jellyfish:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N, part=Math.floor(f*3), pf=(f*3)%1;
+      var bell=Math.sin(t*sp*1.2)*.15*ch;
+      var x,y,z;
+      if(part===0){// bell dome
+        var phi=pf*Math.PI*.65, ang=pf*Math.PI*2*(i%17);
+        var r=Math.sin(phi)*sc*.3*(1+bell);
+        x=Math.cos(ang)*r; y=Math.cos(phi)*sc*.25; z=Math.sin(ang)*r;
+      } else if(part===1){// tentacles
+        var tNum=Math.floor(pf*12), ts=(pf*12)%1;
+        var tang=tNum*(Math.PI*2/12);
+        var droop=Math.sin(ts*Math.PI*3+t*sp+tNum)*ch*4;
+        x=Math.cos(tang)*sc*.28; y=-ts*sc*.5+droop; z=Math.sin(tang)*sc*.28;
+      } else {// inner organs
+        var a=pf*Math.PI*2, b=pf*Math.PI;
+        x=Math.cos(a)*Math.sin(b)*sc*.12; y=Math.cos(b)*sc*.1+sc*.05; z=Math.sin(a)*Math.sin(b)*sc*.12;
+      }
+      _c.setHSL((.55+f*.2+cs+Math.sin(t*.3)*.05)%1,.9,.6);
+      return[x+Math.sin(t*sp*.4+i*.003)*ch*2,y,z+Math.cos(t*sp*.4+i*.003)*ch*2];
+    },
+
+    crystal:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var face=Math.floor(f*12), ff=(f*12)%1;
+      var phi=face*(Math.PI/6)+t*sp*.08;
+      var theta=ff*Math.PI;
+      var facet=Math.sin(theta*6)*ch*.05+1;
+      var r=sc*.4*facet;
+      var ang=ff*Math.PI*2;
+      var taper=Math.sin(theta)*.9+.1;
+      _c.setHSL((face/12+cs+f*.3+t*.01)%1,.7,.7);
+      return[Math.cos(phi)*r*taper,Math.cos(theta)*sc*.5,Math.sin(phi)*r*taper];
+    },
+
+    tornado:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var h=(f-.5)*sc*2;
+      var radius=Math.pow(Math.abs(h)/sc+.05,.7)*sc*.6*(.3+ch*.7);
+      var ang=f*Math.PI*40+t*sp*3+h*.05;
+      var wobble=Math.sin(f*Math.PI*7+t*sp*2)*ch*sc*.04;
+      _c.setHSL((.15+f*.35+cs+t*.02)%1,.9,.55);
+      return[Math.cos(ang)*(radius+wobble),h,Math.sin(ang)*(radius+wobble)];
+    },
+
+    neuron:function(i,N,t,sp,sc,ch,cs){
+      var f=i/N;
+      var axon=Math.floor(f*8), af=(f*8)%1;
+      var baseAng=axon*(Math.PI*2/8)+t*sp*.1;
+      var x,y,z;
+      if(axon===0){// soma (cell body)
+        var phi=af*Math.PI*2, th=af*Math.PI;
+        x=Math.sin(th)*Math.cos(phi)*sc*.12; y=Math.cos(th)*sc*.12; z=Math.sin(th)*Math.sin(phi)*sc*.12;
+      } else if(axon<5){// dendrites branch
+        var seg=af, branchWave=Math.sin(seg*Math.PI*4+t*sp*2+axon)*ch*sc*.1;
+        x=Math.cos(baseAng)*(seg*sc*.35)+branchWave;
+        y=Math.sin(baseAng*1.3)*(seg*sc*.2); z=Math.sin(baseAng)*(seg*sc*.35)+branchWave*.5;
+      } else {// axon long
+        var pulse=Math.sin(af*Math.PI*8-t*sp*4)*ch*sc*.04;
+        x=Math.cos(baseAng+af*.5)*af*sc*.5+pulse;
+        y=-af*sc*.3; z=Math.sin(baseAng+af*.5)*af*sc*.5+pulse;
+      }
+      var fire=Math.abs(Math.sin(t*sp*2+axon))*.3;
+      _c.setHSL((.6+axon*.04+cs+fire*.2)%1,1,.5+fire*.3);
+      return[x,y,z];
+    }
+  };
+
+  var cur='galaxy';
+  document.querySelectorAll('.pb').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.pb').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active'); cur=b.dataset.p;
+      document.getElementById('hud-preset').textContent='◈ '+b.textContent;
+    });
+  });
+
+  // Camera orbit
+  var drag=false,lmx=0,lmy=0,cth=0.3,cph=1.1,cd=160;
+  document.addEventListener('mousedown',function(e){drag=true;lmx=e.clientX;lmy=e.clientY;});
+  document.addEventListener('mouseup',function(){drag=false;});
+  document.addEventListener('mousemove',function(e){
+    if(!drag)return;
+    cth-=(e.clientX-lmx)*.005; cph-=(e.clientY-lmy)*.005;
+    cph=Math.max(.1,Math.min(Math.PI-.1,cph)); lmx=e.clientX;lmy=e.clientY;
+  });
+  document.addEventListener('wheel',function(e){cd=Math.max(30,Math.min(400,cd+e.deltaY*.12));});
+  var ltx=0,lty=0;
+  document.addEventListener('touchstart',function(e){ltx=e.touches[0].clientX;lty=e.touches[0].clientY;});
+  document.addEventListener('touchmove',function(e){
+    cth-=(e.touches[0].clientX-ltx)*.005; cph-=(e.touches[0].clientY-lty)*.005;
+    cph=Math.max(.1,Math.min(Math.PI-.1,cph)); ltx=e.touches[0].clientX;lty=e.touches[0].clientY;
+  });
+  window.addEventListener('resize',function(){
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);
+  });
+
+  var fpsEl=document.getElementById('fps'), fc=0, fl=performance.now(), t0=null, ff=true;
+
+  function animate(ts){
+    requestAnimationFrame(animate);
+    if(!t0)t0=ts;
+    var time=(ts-t0)/1000;
+
+    if(ff){ff=false;clearInterval(lt);lbEl.style.width='100%';
+      setTimeout(function(){lsEl.style.opacity='0';setTimeout(function(){lsEl.style.display='none';},1000);},300);}
+
+    var sp=gv('cs'),sc=gv('csc'),ch=gv('cch'),cs=gv('ccl'),sz=gv('csz');
+    mat.size=sz*.28;
+
+    var fn=P[cur]||P.galaxy;
+    var pa=geo.attributes.position.array, ca=geo.attributes.color.array;
+
+    for(var i=0;i<N;i++){
+      var r=fn(i,N,time,sp,sc,ch,cs);
+      pa[i*3]  =isFinite(r[0])?r[0]:0;
+      pa[i*3+1]=isFinite(r[1])?r[1]:0;
+      pa[i*3+2]=isFinite(r[2])?r[2]:0;
+      ca[i*3]  =_c.r; ca[i*3+1]=_c.g; ca[i*3+2]=_c.b;
+    }
+
+    geo.attributes.position.needsUpdate=true;
+    geo.attributes.color.needsUpdate=true;
+
+    camera.position.x=cd*Math.sin(cph)*Math.cos(cth);
+    camera.position.y=cd*Math.cos(cph);
+    camera.position.z=cd*Math.sin(cph)*Math.sin(cth);
+    camera.lookAt(0,0,0);
+    if(!drag)cth+=.0007*sp;
+
+    renderer.render(scene,camera);
+    fc++;
+    var now=performance.now();
+    if(now-fl>600){fpsEl.textContent='FPS: '+Math.round(fc*1000/(now-fl));fc=0;fl=now;}
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
