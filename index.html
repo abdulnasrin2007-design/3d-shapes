@@ -68,6 +68,9 @@
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
     background: linear-gradient(to top, rgba(0,0,10,0.95) 60%, transparent);
     padding: 12px 16px 14px;
+    max-height: 35vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   #presets-label {
     font-size: 9px; letter-spacing: 4px; color: rgba(255,255,255,0.25);
@@ -102,6 +105,48 @@
   #loading h1 { font-family:'Orbitron',sans-serif; font-size:12px; letter-spacing:8px; color:rgba(255,255,255,0.4); margin-bottom:20px; }
   .lbw { width:220px; height:2px; background:rgba(255,255,255,0.08); border-radius:1px; overflow:hidden; }
   .lb  { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); width:0%; transition:width 0.15s; }
+
+  /* ── MOBILE RESPONSIVE FIXES ── */
+  @media (max-width: 768px) {
+    #hud {
+      top: 12px;
+      left: 12px;
+    }
+    #hud-title {
+      font-size: 16px;
+      letter-spacing: 3px;
+    }
+    #hud-desc {
+      max-width: 180px;
+      font-size: 9px;
+    }
+    #fps {
+      top: 12px;
+      left: auto;
+      right: 12px;
+      transform: none;
+    }
+    #controls {
+      position: fixed;
+      top: auto;
+      bottom: 35vh; /* బటన్స్ బాక్స్ పైకి వచ్చేలా సెట్ చేశాను */
+      right: 12px;
+      left: 12px;
+      width: calc(100% - 24px);
+      padding: 10px 14px;
+      border-radius: 10px;
+    }
+    #controls h3 {
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+    }
+    .cr {
+      margin-bottom: 7px;
+    }
+    #presets-wrap {
+      padding: 10px 10px 12px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -394,7 +439,7 @@
       var dist=Math.sqrt(wx*wx+wz*wz)+.001;
       // mountain range with multiple peaks
       var h1=Math.exp(-dist*.04)*sc*.8;
-      var h2=Math.exp(-((wx-sc*.3)*(wx-sc*.3)+(wz-sc*.2)*(wz-sc*.2))*.005)*sc*.5;
+      var h2=Math.exp(-((wx-sc*.3)*(wx-sc*.2)+(wz-sc*.2)*(wz-sc*.2))*.005)*sc*.5;
       var h3=Math.exp(-((wx+sc*.25)*(wx+sc*.25)+(wz-sc*.35)*(wz-sc*.35))*.006)*sc*.4;
       var snow=h1>sc*.6?ch*Math.sin(i*311+t*sp*2)*3:0;
       var wy=h1+h2+h3+snow-sc*.2;
@@ -480,7 +525,7 @@
       if(part===0){// bell dome
         var phi=pf*Math.PI*.65, ang=pf*Math.PI*2*(i%17);
         var r=Math.sin(phi)*sc*.3*(1+bell);
-        x=Math.cos(ang)*r; y=Math.cos(phi)*sc*.25; z=Math.sin(ang)*r;
+        x=Math.cos(tang)*r; y=Math.cos(phi)*sc*.25; z=Math.sin(tang)*r;
       } else if(part===1){// tentacles
         var tNum=Math.floor(pf*12), ts=(pf*12)%1;
         var tang=tNum*(Math.PI*2/12);
